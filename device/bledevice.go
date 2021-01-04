@@ -67,8 +67,10 @@ func (d BLEDiscovery) ScanOnce(duration time.Duration) (Identifiers, error) {
 	select {
 	case <-time.After(duration):
 		d.StopScan()
+		done <- true
 	case err := <-errors:
 		d.StopScan()
+		done <- true
 		return nil, err
 	}
 
