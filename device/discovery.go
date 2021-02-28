@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/rs/zerolog/log"
 	"tinygo.org/x/bluetooth"
 )
 
@@ -83,6 +84,7 @@ func (d BLEDiscovery) ScanOnce(duration time.Duration) (Identifiers, error) {
 
 	results := []Identifier{}
 	for _, v := range deduplication {
+		log.Debug().Msgf("found BLE device: %v\n", v)
 		results = append(results, v)
 	}
 	return results, nil
@@ -97,6 +99,7 @@ func (d BLEDiscovery) StopScan() {
 // It will connect to the device, discover characteristics, and make determinations about
 // tx/rx channels.
 func (d BLEDiscovery) Connect(identifier Identifier) (Device, error) {
+	log.Debug().Msgf("attempting to connect to identifier: %v\n", identifier)
 	uuid, err := bluetooth.ParseUUID(identifier.Address)
 	if err != nil {
 		return nil, err
@@ -115,6 +118,7 @@ func (d BLEDiscovery) Connect(identifier Identifier) (Device, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	if len(services) == 0 {
 		return nil, fmt.Errorf("Device at %s has no registered services", identifier.Address)
 	}
@@ -128,9 +132,10 @@ func (d BLEDiscovery) Connect(identifier Identifier) (Device, error) {
 
 	// TODO identify these better. right now ordering is sufficient.
 	retDevice := BLEDevice{
-		device: device,
-		tx:     characteristics[0],
-		rx:     characteristics[1],
+		device:         device,
+		tx:             characteristics[0],
+		rx:             characteristics[1],
+		implementation: NewImplementation(identifier.Name),
 	}
 
 	return retDevice, nil
