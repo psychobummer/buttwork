@@ -1,8 +1,6 @@
 package device
 
 import (
-	"fmt"
-
 	"tinygo.org/x/bluetooth"
 )
 
@@ -17,9 +15,7 @@ type BLEDevice struct {
 
 // Vibrate will cause the device to vibrate at the specified level.
 func (b BLEDevice) Vibrate(level uint8) (int, error) {
-	strCommand := fmt.Sprintf("Vibrate:%d;\n", level)
-	command := []byte(strCommand)
-	return b.tx.WriteWithoutResponse(command)
+	return b.tx.WriteWithoutResponse(b.implementation.VibrateCommand(level))
 }
 
 // Disconnect disconnects the device. In this case it shuts down the underlying bluetooth
