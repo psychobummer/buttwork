@@ -84,7 +84,7 @@ func (d BLEDiscovery) ScanOnce(duration time.Duration) (Identifiers, error) {
 
 	results := []Identifier{}
 	for _, v := range deduplication {
-		log.Debug().Msgf("found BLE device: %v\n", v)
+		log.Debug().Msgf("found BLE device: %v", v)
 		results = append(results, v)
 	}
 	return results, nil
@@ -99,7 +99,7 @@ func (d BLEDiscovery) StopScan() {
 // It will connect to the device, discover characteristics, and make determinations about
 // tx/rx channels.
 func (d BLEDiscovery) Connect(identifier Identifier) (Device, error) {
-	log.Debug().Msgf("attempting to connect to identifier: %v\n", identifier)
+	log.Debug().Msgf("attempting to connect to identifier: %v", identifier)
 	uuid, err := bluetooth.ParseUUID(identifier.Address)
 	if err != nil {
 		return nil, err

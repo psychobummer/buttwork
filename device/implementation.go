@@ -5,7 +5,7 @@ import "fmt"
 // Implementation defines the interface a concrete device implementation
 type Implementation interface {
 	VibrateCommand(uint8) []byte // a command that will vibrate the device
-	Init() bool                  // some devices require an initialization procedure
+	Init() error                 // some devices require an initialization procedure
 }
 
 // NewImplementation returns a concrete implementation for the type of device
@@ -26,8 +26,8 @@ func (l LovenseImplementation) VibrateCommand(level uint8) []byte {
 }
 
 // Init is a NOOP for lovense devices
-func (l LovenseImplementation) Init() bool {
-	return false
+func (l LovenseImplementation) Init() error {
+	return nil
 }
 
 // To vibrate a device, you generally say "vibrate at x", where x is some integer value.
