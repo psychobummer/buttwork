@@ -2,7 +2,6 @@ package device
 
 import (
 	"fmt"
-	"regexp"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -160,22 +159,6 @@ func (d BLEDiscovery) Connect(identifier Identifier) (Device, error) {
 
 	// caller is responsible for disconnecting now
 	return retDevice, nil
-}
-
-func (d BLEDiscovery) canHandleType(identifier Identifier) bool {
-	for _, driver := range d.config.Drivers {
-		for _, regex := range driver.Names {
-			matched, err := regexp.Match(regex, []byte(identifier.Name))
-			if err != nil {
-				log.Error().Msgf("couldn't execute regex [%s]; skipping: %s", regex, err)
-			}
-			if matched {
-				return true
-			}
-		}
-
-	}
-	return false
 }
 
 // GetSupportedService will enumerate all services expose by the device, and return the first one that
