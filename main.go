@@ -12,7 +12,11 @@ import (
 // * Tell it to vibrate for 5 seconds
 
 func main() {
-	discovery, err := device.NewBLEDiscovery()
+
+	config := device.TestConfig()
+	//fmt.Printf("%+v", config)
+
+	discovery, err := device.NewBLEDiscovery(config)
 	if err != nil {
 		log.Fatal().Err(err)
 	}
@@ -29,7 +33,7 @@ func main() {
 
 	device, err := discovery.Connect(filteredIdentifiers[0])
 	if err != nil {
-		log.Fatal().Msgf("Couldn't connect to device %s", filteredIdentifiers[0].Address)
+		log.Fatal().Msgf("Couldn't connect to device %s: %s", filteredIdentifiers[0].Address, err)
 	}
 
 	_, err = device.Vibrate(5)

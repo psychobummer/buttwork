@@ -2,6 +2,7 @@ package device
 
 import (
 	"fmt"
+	"regexp"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -19,16 +20,21 @@ type Discovery interface {
 // Allows for the discovery of, and connection to, bluetooth devices.
 type BLEDiscovery struct {
 	adapter *bluetooth.Adapter
+	config  Config
 }
 
 // NewBLEDiscovery will initialize bluetooth and return
 // something you can use to perform discovery.
-func NewBLEDiscovery() (Discovery, error) {
+func NewBLEDiscovery(config Config) (Discovery, error) {
 	adapter := bluetooth.DefaultAdapter
 	if err := adapter.Enable(); err != nil {
 		return nil, err
 	}
-	return BLEDiscovery{adapter: adapter}, nil
+	discovery := BLEDiscovery{
+		adapter: adapter,
+		config:  config,
+	}
+	return discovery, nil
 }
 
 // ScanBackground forks a gofunc and returns a constant stream of Identifiers for
@@ -90,7 +96,7 @@ func (d BLEDiscovery) ScanOnce(duration time.Duration) (Identifiers, error) {
 	return results, nil
 }
 
-// StopScan stops the bluetooth scan process
+// StopScan stops the bluSetooth scan process
 func (d BLEDiscovery) StopScan() {
 	d.adapter.StopScan()
 }
@@ -99,6 +105,15 @@ func (d BLEDiscovery) StopScan() {
 // It will connect to the device, discover characteristics, and make determinations about
 // tx/rx channels.
 func (d BLEDiscovery) Connect(identifier Identifier) (Device, error) {
+
+	if identifier.Name == "" {
+		return nil, fmt.Errorf("Device does not specify a name; cannot determine driver")
+	}
+
+	if found, _ := d.config.GetTypeFromIdentifier(identifier); !found {
+		return nil, fmt.Errorf("config does not specify a driver type for device identified by %s", identifier.Name)
+	}
+
 	log.Debug().Msgf("attempting to connect to identifier: %v", identifier)
 	uuid, err := bluetooth.ParseUUID(identifier.Address)
 	if err != nil {
@@ -113,31 +128,113 @@ func (d BLEDiscovery) Connect(identifier Identifier) (Device, error) {
 		return nil, err
 	}
 
-	// nil argument gets all services
-	services, err := device.DiscoverServices(nil)
+	// From here on out, we have established a connection to the device.
+	// If we encounter an error, make sure we disconnect from it.
+	service, err := d.getSupportedService(identifier, device)
 	if err != nil {
+		device.Disconnect()
 		return nil, err
 	}
+	log.Debug().Msgf("discovered supported service: %v", service)
 
-	if len(services) == 0 {
-		return nil, fmt.Errorf("Device at %s has no registered services", identifier.Address)
-	}
-	service := services[0]
-
-	// nil argument gets all characteristics
-	characteristics, err := service.DiscoverCharacteristics(nil)
+	tx, rx, err := d.getSupportedCharacteristics(identifier, service)
 	if err != nil {
+		device.Disconnect()
 		return nil, err
 	}
+	log.Debug().Msgf("discovered characteristics (tx: %v, rx: %v)", tx, rx)
 
 	// TODO identify these better. right now ordering is sufficient.
+	_, deviceType := d.config.GetTypeFromIdentifier(identifier)
+	implementation, err := NewImplementation(deviceType)
+	if err != nil {
+		device.Disconnect()
+		return nil, err
+	}
 	retDevice := BLEDevice{
 		device:         device,
-		tx:             characteristics[0],
-		rx:             characteristics[1],
-		implementation: NewImplementation(identifier.Name),
+		tx:             tx,
+		rx:             rx,
+		implementation: implementation,
 	}
 
+	// caller is responsible for disconnecting now
 	return retDevice, nil
+}
 
+func (d BLEDiscovery) canHandleType(identifier Identifier) bool {
+	for _, driver := range d.config.Drivers {
+		for _, regex := range driver.Names {
+			matched, err := regexp.Match(regex, []byte(identifier.Name))
+			if err != nil {
+				log.Error().Msgf("couldn't execute regex [%s]; skipping: %s", regex, err)
+			}
+			if matched {
+				return true
+			}
+		}
+
+	}
+	return false
+}
+
+// GetSupportedService will enumerate all services expose by the device, and return the first one that
+// we know how to support. As is we don't have any devices in our posession that support multiple services.
+// TODO: tidy up; do all config-specified UUID validation up front
+func (d BLEDiscovery) getSupportedService(identifier Identifier, device *bluetooth.Device) (bluetooth.DeviceService, error) {
+	// nil argument gets all services
+	discoveredServices, err := device.DiscoverServices(nil)
+	if err != nil {
+		return bluetooth.DeviceService{}, err
+	}
+	for _, supportedService := range d.config.GetServicesForIdentifier(identifier) {
+		parsedUUID, err := bluetooth.ParseUUID(supportedService.ID)
+		if err != nil {
+			log.Error().Msgf("configuration for identifier %s contains an invalid UUID %s: %s", identifier, supportedService.ID, err)
+			continue
+		}
+		for _, discoveredService := range discoveredServices {
+			if parsedUUID == discoveredService.UUID() {
+				// we can support this discovered service
+				return discoveredService, nil
+			}
+		}
+	}
+	return bluetooth.DeviceService{}, fmt.Errorf("Device %s exposes no supported services", identifier.Name)
+}
+
+// GetSupportedCharacteristics will enumerate all characteristics exposed by the given service,
+// and return them as a tx/rx touple. The devices we have only expose tx/rx characteristics, but
+// who knows if they have a writeable characteristic that, like, wipes the firmware or something,
+// so let's try to be safe and only talk to things we know about.
+func (d BLEDiscovery) getSupportedCharacteristics(identifier Identifier, service bluetooth.DeviceService) (bluetooth.DeviceCharacteristic, bluetooth.DeviceCharacteristic, error) {
+
+	// nil argument gets all characteristics
+	discoveredCharacteristics, err := service.DiscoverCharacteristics(nil)
+	if err != nil {
+		return bluetooth.DeviceCharacteristic{}, bluetooth.DeviceCharacteristic{}, err
+	}
+
+	// look up the characteristic details we have on file for this service
+	for _, supportedService := range d.config.GetServicesForIdentifier(identifier) {
+		// we found the service we're asking about
+		if supportedService.ID == service.String() {
+			var tx bluetooth.DeviceCharacteristic
+			var rx bluetooth.DeviceCharacteristic
+			for _, discovered := range discoveredCharacteristics {
+				if supportedService.Tx == discovered.String() {
+					tx = discovered
+				}
+				if supportedService.Rx == discovered.String() {
+					rx = discovered
+				}
+			}
+			// we have tx and rx characteristics matching what we've discovered
+			if tx.String() != "" && rx.String() != "" {
+				return tx, rx, nil
+			}
+		}
+	}
+	notFoundErr := fmt.Errorf("Device did not advertise any known characteristics")
+	return bluetooth.DeviceCharacteristic{}, bluetooth.DeviceCharacteristic{}, notFoundErr
 }

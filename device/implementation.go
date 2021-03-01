@@ -4,18 +4,33 @@ import "fmt"
 
 // Implementation defines the interface a concrete device implementation
 type Implementation interface {
+	Init() error                 // some devices may require an initialization procedure
+	Name() string                // return implementatin name for logging
 	VibrateCommand(uint8) []byte // a command that will vibrate the device
-	Init() error                 // some devices require an initialization procedure
 }
 
 // NewImplementation returns a concrete implementation for the type of device
 // identified by `name`
-func NewImplementation(name string) Implementation {
-	return LovenseImplementation{}
+func NewImplementation(deviceType string) (Implementation, error) {
+	switch deviceType {
+	case "lovense":
+		return LovenseImplementation{}, nil
+	}
+	return nil, fmt.Errorf("No implementation defined for type %s", deviceType)
 }
 
 // LovenseImplementation provides a concrete implmentation of the Lovense protocol
 type LovenseImplementation struct{}
+
+// Init is a NOOP for lovense devices
+func (l LovenseImplementation) Init() error {
+	return nil
+}
+
+// Name returns the implementation name
+func (l LovenseImplementation) Name() string {
+	return "lovense"
+}
 
 // VibrateCommand will vibrate a lovense device
 func (l LovenseImplementation) VibrateCommand(level uint8) []byte {
@@ -23,11 +38,6 @@ func (l LovenseImplementation) VibrateCommand(level uint8) []byte {
 	normalized := normalize(level, deviceMax)
 	command := fmt.Sprintf("Vibrate:%d;\n", normalized)
 	return []byte(command)
-}
-
-// Init is a NOOP for lovense devices
-func (l LovenseImplementation) Init() error {
-	return nil
 }
 
 // To vibrate a device, you generally say "vibrate at x", where x is some integer value.
