@@ -24,12 +24,16 @@ func (l WevibeImplementation) Name() string {
 // but changing the <vibe pattern> bits to 0x00 does; an intensity of 0x00 is maybe
 // used to represent the lowest possible value instead of "off", and a pattern of
 // 0x00 is off?
+// bug: it doesn't seem like cranking the intensity up to 0xff gets the device as
+// crazy as the internal preset features.
 func (l WevibeImplementation) VibrateCommand(level uint8) []byte {
 	if level <= 0 {
 		return []byte{0x0f, 0x00, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00}
 	}
 	deviceMax := uint8(15)
 	normalized := normalize(level, deviceMax)
-	command := []byte{0x0f, 0x03, 0x00, normalized, 0x00, 0x03, 0x00, 0x00}
+	// intensity byte is split in two; 4-hibits are "internal" motors, 4-lowbits are "external motors"
+	// just mirror the value across both
+	command := []byte{0x0f, 0x03, 0x00, normalized | (normalized << 4), 0x00, 0x03, 0x00, 0x00}
 	return []byte(command)
 }
