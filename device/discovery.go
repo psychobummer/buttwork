@@ -48,6 +48,11 @@ func (d BLEDiscovery) ScanBackground() (<-chan Identifier, <-chan error) {
 				Address: found.Address.String(),
 				Name:    found.LocalName(),
 			}
+			if ident.Name == "" {
+				log.Debug().Msgf("scan result: %v [ignored]", ident)
+				return
+			}
+			log.Debug().Msgf("scan result: %v", ident)
 			idents <- ident
 		})
 		if err != nil {
@@ -89,7 +94,7 @@ func (d BLEDiscovery) ScanOnce(duration time.Duration) (Identifiers, error) {
 
 	results := []Identifier{}
 	for _, v := range deduplication {
-		log.Debug().Msgf("found BLE device: %v", v)
+		log.Debug().Msgf("found well-formed BLE device: %v", v)
 		results = append(results, v)
 	}
 	return results, nil
