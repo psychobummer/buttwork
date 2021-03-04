@@ -96,6 +96,17 @@ func TestConfig() Config {
 					},
 				},
 			},
+			{
+				Type:  "wevibe",
+				Names: []string{"Ditto*"},
+				Services: []Service{
+					{
+						ID: "f000bb03-0451-4000-b000-000000000000",
+						Tx: "f000c000-0451-4000-b000-000000000000",
+						Rx: "f000b000-0451-4000-b000-000000000000",
+					},
+				},
+			},
 		},
 	}
 	return config

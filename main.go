@@ -21,12 +21,12 @@ func main() {
 		log.Fatal().Err(err)
 	}
 
-	identifiers, err := discovery.ScanOnce(5 * time.Second)
+	identifiers, err := discovery.ScanOnce(2 * time.Second)
 	if err != nil {
 		log.Fatal().Err(err)
 	}
+	filteredIdentifiers := identifiers.FilterPrefix("Ditto")
 
-	filteredIdentifiers := identifiers.FilterPrefix("LVS")
 	if len(filteredIdentifiers) == 0 {
 		log.Fatal().Msg("No compatible devices found")
 	}
@@ -36,14 +36,13 @@ func main() {
 		log.Fatal().Msgf("Couldn't connect to device %s: %s", filteredIdentifiers[0].Address, err)
 	}
 
-	_, err = device.Vibrate(5)
-	if err != nil {
-		log.Fatal().Msg("Couldn't issue vibrate command")
-	}
-	<-time.After(5 * time.Second)
-	_, err = device.Vibrate(0)
-	if err != nil {
-		log.Fatal().Msg("Couldn't issue vibrate command")
+	// step through intensity settings, ending at 0
+	steps := []uint8{20, 40, 60, 80, 100, 0}
+	for _, step := range steps {
+		if _, err := device.Vibrate(step); err != nil {
+			log.Fatal().Msg("Couldn't issue vibrate command")
+		}
+		<-time.After(2 * time.Second)
 	}
 
 	if err = device.Disconnect(); err != nil {
