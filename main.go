@@ -25,7 +25,7 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err)
 	}
-	filteredIdentifiers := identifiers.FilterPrefix("Ditto")
+	filteredIdentifiers := identifiers.FilterPrefix("Pearl2.1")
 
 	if len(filteredIdentifiers) == 0 {
 		log.Fatal().Msg("No compatible devices found")

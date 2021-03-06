@@ -17,6 +17,8 @@ func NewImplementation(deviceType string) (Implementation, error) {
 		return LovenseImplementation{}, nil
 	case "wevibe":
 		return WevibeImplementation{}, nil
+	case "pearl21":
+		return Pearl21Implementation{}, nil
 	}
 	return nil, fmt.Errorf("No implementation defined for type %s", deviceType)
 }

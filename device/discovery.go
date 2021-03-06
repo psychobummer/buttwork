@@ -205,6 +205,10 @@ func (d BLEDiscovery) getSupportedCharacteristics(identifier Identifier, service
 
 	// look up the characteristic details we have on file for this service
 	for _, supportedService := range d.config.GetServicesForIdentifier(identifier) {
+		// we have no way to determine if bluetooth.DeviceCharacteristic is nil value
+		// without calling a method on it, which will potentially defref a nil pointer
+		// and segfault. have to do this a stupid way
+		found := 0
 		// we found the service we're asking about
 		if supportedService.ID == service.String() {
 			var tx bluetooth.DeviceCharacteristic
@@ -212,16 +216,19 @@ func (d BLEDiscovery) getSupportedCharacteristics(identifier Identifier, service
 			for _, discovered := range discoveredCharacteristics {
 				if supportedService.Tx == discovered.String() {
 					tx = discovered
+					found++
 				}
 				if supportedService.Rx == discovered.String() {
 					rx = discovered
+					found++
 				}
 			}
 			// we have tx and rx characteristics matching what we've discovered
-			if tx.String() != "" && rx.String() != "" {
+			if found == 2 {
 				return tx, rx, nil
 			}
 		}
+		found = 0
 	}
 	notFoundErr := fmt.Errorf("Device did not advertise any known characteristics")
 	return bluetooth.DeviceCharacteristic{}, bluetooth.DeviceCharacteristic{}, notFoundErr

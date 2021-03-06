@@ -107,6 +107,17 @@ func TestConfig() Config {
 					},
 				},
 			},
+			{
+				Type:  "pearl21",
+				Names: []string{"Pearl2.1"},
+				Services: []Service{
+					{
+						ID: "00001900-0000-1000-8000-00805f9b34fb",
+						Tx: "19020000-0000-0000-0000-000000000000",
+						Rx: "19030000-0000-0000-0000-000000000000",
+					},
+				},
+			},
 		},
 	}
 	return config
